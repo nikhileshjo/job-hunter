@@ -20,7 +20,8 @@ class fileSaver:
 
         try:
             with gzip.open(f"{location}/{file_name}.gz", "wt", encoding="utf-8") as zipfile:
-                json.dumps(file_content, zipfile, ensure_ascii=False, indent=4)
+                content = json.dumps(file_content, ensure_ascii=False, indent=4)
+                zipfile.write(content)
                 return True
         except PermissionError:
                 print(f"Permission denied: Unable to create '{location}/{file_name}'.")

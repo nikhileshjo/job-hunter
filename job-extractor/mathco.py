@@ -29,29 +29,29 @@ for ind in range(0, 50, 10):
     }
 
     job_search_response = requests.post(job_search_url, data=job_search_payload, headers=headers)
-
+    jobs = json.loads(job_search_response.text)['data']['data']
     # fetching job details response and saving the files
-    for job in json.loads(job_search_response.text)['data']['data']:
+    for job_index in range(len(jobs)):
         job_details_payload = {
-            "jobUrl": f"{job["_source"]["jobUrl"]}?id={job["_id"]}",
+            "jobUrl": f"{jobs[job_index]["_source"]["jobUrl"]}?id={jobs[job_index]["_id"]}",
             "externalSource": "CareerSite",
             "campusUrl": "empty",
-            "companyId": job["_source"]["companyId"],
-            "jobId": job["_id"]
+            "companyId": jobs[job_index]["_source"]["companyId"],
+            "jobId": jobs[job_index]["_id"]
         }
         #print(json.dumps(job_details_payload))
         job_details_response = requests.post(job_details_url, json = job_details_payload, headers = headers)
         file_content = {
             "company_name" : "mathco",
-            "job_id" : str(job["_id"]),
-            "job_search_response": json.loads(job_search_response.text),
+            "job_id" : str(jobs[job_index]["_id"]),
+            "job_search_response": jobs[job_index],
             "job_details": json.loads(job_details_response.text),
         }
         #print(json.dumps(str(file_content)))
 
-        is_file_saved = fileSaver.save_job(extract_date, file_content, "mathco", job['_id'])
+        is_file_saved = fileSaver.save_job(extract_date, file_content, "mathco", jobs[job_index]["_id"])
         if not is_file_saved:
-            print("Failed to save files: ",  job['_id'], job["_source"]["jobUrl"])
+            print("Failed to save files: ",  jobs[job_index]['_id'], jobs[job_index]["_source"]["jobUrl"])
 
 
     if json.loads(job_search_response.text)['data']['hasMoreData'] == False:
