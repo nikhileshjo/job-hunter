@@ -1,3 +1,6 @@
 job_mining/jobs
 */__pycache__
 minio/data
+web_scrapping/utils/tmp
+web_scrapping/logs
+web_scrapping/utils/__pycache__
