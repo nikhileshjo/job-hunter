@@ -1,19 +1,56 @@
 services:
+  # Object Storage (Data Lake)
   minio:
-    container_name: "minio"
+    container_name: minio
     image: minio/minio
-  
     environment:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=password
       - MINIO_DOMAIN=minio
-
-    command: >
-      server /data --console-address :9001
+    command: server /data --console-address :9001
     ports:
-        - 9000:9000
-        - 9001:9001
+      - 9000:9000
+      - 9001:9001
     volumes:
-        - ./minio/data:/data
-    
+      - ./minio/data:/data
     restart: unless-stopped
+
+  # Data Warehouse (PostgreSQL)
+  db:
+    build: 
+      context: ./data_warehouse
+      dockerfile: Dockerfile
+    container_name: db
+    restart: always
+    shm_size: 200mb
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=jobs
+    ports:
+      - 5432:5432
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Automatically run DDL on first startup
+      - ./data_warehouse/init:/docker-entrypoint-initdb.d
+    depends_on:
+      - minio
+
+  # Database Management (pgAdmin)
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION=False
+    ports:
+      - 5050:80
+    volumes:
+      - ./pgadmin_servers.json:/pgadmin4/servers.json
+    restart: always
+    depends_on:
+      - db
+
+volumes:
+  db_data:

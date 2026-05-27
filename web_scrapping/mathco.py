@@ -32,26 +32,37 @@ for ind in range(0, 50, 10):
     jobs = json.loads(job_search_response.text)['data']['data']
     # fetching job details response and saving the files
     for job_index in range(len(jobs)):
+        job_id = str(jobs[job_index]["_id"])
+        job_url = f"{jobs[job_index]['_source']['jobUrl']}?id={job_id}"
+        
         job_details_payload = {
-            "jobUrl": f"{jobs[job_index]["_source"]["jobUrl"]}?id={jobs[job_index]["_id"]}",
+            "jobUrl": job_url,
             "externalSource": "CareerSite",
             "campusUrl": "empty",
             "companyId": jobs[job_index]["_source"]["companyId"],
-            "jobId": jobs[job_index]["_id"]
+            "jobId": job_id
         }
-        #print(json.dumps(job_details_payload))
-        job_details_response = requests.post(job_details_url, json = job_details_payload, headers = headers)
+        
+        job_details_response = requests.post(job_details_url, json=job_details_payload, headers=headers)
+        details = json.loads(job_details_response.text)
+        
+        # Standardized schema
         file_content = {
-            "company_name" : "mathco",
-            "job_id" : str(jobs[job_index]["_id"]),
-            "job_search_response": jobs[job_index],
-            "job_details": json.loads(job_details_response.text),
+            "company_name": "mathco",
+            "job_id": job_id,
+            "url": job_url,
+            "job_description": details.get("data", {}).get("jobDescription", ""),
+            "meta_data": {
+                "job_search_data": jobs[job_index],
+                "job_details_raw": details
+            }
         }
-        #print(json.dumps(str(file_content)))
 
-        is_file_saved = save_job("mathco", json.dumps(str(file_content)), extract_date)
+        is_file_saved = save_job("mathco", json.dumps(file_content), extract_date)
         if not is_file_saved:
-            print("Failed to save files: ",  jobs[job_index]['_id'], jobs[job_index]["_source"]["jobUrl"])
+            print(f"Failed to save job: {job_id}")
+        else:
+            print(f"Saved job: {job_id}")
 
 
     if json.loads(job_search_response.text)['data']['hasMoreData'] == False:
