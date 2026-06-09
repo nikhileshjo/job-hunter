@@ -1,5 +1,5 @@
 job_mining/jobs
-*/__pycache__
+**/__pycache__
 minio/data
 web_scrapping/utils/tmp
 web_scrapping/logs
