@@ -40,7 +40,7 @@ class MathCoScraper(BaseScraper):
             for job_index in range(len(jobs)):
                 job_id = str(jobs[job_index]["_id"])
                 job_url = f"{jobs[job_index]['_source']['jobUrl']}?id={job_id}"
-                
+                job_absolute_url = "https://careers.mathco.com/mathco/jobview/" + jobs[job_index]['_source']['jobUrl']
                 job_details_payload = {
                     "jobUrl": job_url,
                     "externalSource": "CareerSite",
@@ -55,9 +55,12 @@ class MathCoScraper(BaseScraper):
                 yield JobData(
                     job_id=job_id,
                     company_name=self.company_name,
-                    url=job_url,
+                    url= job_absolute_url,
                     title=jobs[job_index]['_source']['jobTitle'],
-                    description=details.get("data", {}).get("jobDescription", "")
+                    description=details.get("data", {}).get("jobDescription", ""),
+                    location= details["location"],
+                    posted_at= details["createDate"],
+                    meta_data= details
                     )
 
             if json.loads(job_search_response.text)['data']['hasMoreData'] == False:
