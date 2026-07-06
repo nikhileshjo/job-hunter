@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS br_raw_jobs (
     company_name TEXT,
     job_id TEXT,
-    job_url TEXT,,
+    job_url TEXT,
     job_title TEXT,
     job_description TEXT,
     job_location TEXT,

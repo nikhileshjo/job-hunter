@@ -1,0 +1,13 @@
+br_raw_jobs.sql
+dim_locations.sql
+dim_skills.sql
+dim_tools.sql
+dim_generic_job_titles.sql
+dim_dates.sql
+dim_company.sql
+dim_jobs.sql
+jobs_locations.sql
+jobs_skills.sql
+jobs_tools.sql
+fact_jobs.sql
+gd_tool_trends.sql

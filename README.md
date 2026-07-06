@@ -94,15 +94,96 @@ python web_scrapping/mathco.py
 
 ---
 
-## 📊 Data Lakehouse Layers
+## 📊 Data Lakehouse Schema
 
-* **Raw / Data Lake (MinIO)**: Scraped postings are saved as gzip-compressed JSON files to the `raw-jobs` bucket using the structure: `{extract_date}/{company_name}/{company_name}_{timestamp}.json.gz`.
-* **Bronze Layer (`br_mathco`)**: Initial landing table containing raw job information (description, location, raw extracted skills, and metadata).
-* **Silver Layer (`sl_jobs`)**: Standardized, deduplicated, and clean schema records (to be built).
-* **Gold Layer (`gd_tool_trends`)**: Aggregated trend metrics analyzing target tools and counts across extraction windows.
+Below is the ER Diagram of the Silver layer
+
+```mermaid
+erDiagram
+  fact_jobs {
+    fact_jobs_key TEXT PK
+    dim_company_key TEXT FK
+    dim_jobs_key TEXT FK
+    is_active BOOLEAN
+    extract_date DATE
+  }
+
+  dim_company {
+    dim_company_key TEXT PK
+    company_name TEXT
+  }
+  dim_dates {
+    dim_dates_key TEXT PK
+    date DATE
+    month TEXT
+    year INTEGER
+    day_of_week TEXT
+    day_of_week_nm INTEGER
+    }
+  dim_generic_job_titles{
+    dim_generic_job_titles_key TEXT PK
+    generic_titles TEXT[]
+    generic_description TEXT
+  }
+  dim_jobs {
+    dim_jobs_key TEXT PK
+    dim_company_key TEXT FK
+    job_id TEXT
+    job_title TEXT
+    job_url TEXT
+    job_posting_date TEXT FK
+    experience_in_years DECIMAL
+    dim_generic_job_titles_key TEXT FK
+    }
+  dim_locations {
+    dim_locations_key TEXT PK
+    country TEXT
+    state TEXT
+    city TEXT
+    }
+  dim_skills {
+    dim_skills_key TEXT PK
+    skill TEXT
+    }
+  dim_tools {
+    dim_tools_key TEXT PK
+    tool TEXT
+    }
+  jobs_locations {
+    dim_jobs_key TEXT FK
+    dim_locations_key TEXT FK
+    }
+  jobs_skills {
+    dim_jobs_key TEXT FK
+    dim_skills_key TEXT FK
+    }
+  jobs_tools {
+    dim_jobs_key TEXT FK
+    dim_tools_key TEXT FK
+    }
+  
+  fact_jobs ||--|| dim_jobs : references
+  fact_jobs ||--|| dim_company : references
+
+  dim_jobs ||--o{ jobs_locations : has
+  dim_jobs ||--o{ jobs_skills : requires
+  dim_jobs ||--o{ jobs_tools : uses
+  dim_jobs ||--|| dim_company : employed
+
+  jobs_locations }o--|| dim_locations : location
+  jobs_skills }o--|| dim_skills : skill
+  jobs_tools }o--|| dim_tools : tool
+
+  dim_jobs }o--|| dim_dates : posted_on
+  dim_jobs }o--|| dim_generic_job_titles : categorized_as
+
+```
 
 ---
 
 ## 🤝 Contributing
 
 Contributions to support new scraping sources, improve transformation logic, or enhance analytical metrics are welcome! Feel free to open a Pull Request.
+
+## Errors
+1. If you face error while using sqlalchemy, you might see the error: `ModuleNotFoundError: No module named 'psycopg2'` which will not get fixed by a simple `pip install psycopg2`. Try using `pip install psycopg2-binary` instead.
