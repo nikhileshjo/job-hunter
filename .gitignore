@@ -4,3 +4,4 @@ minio/data
 web_scrapping/utils/tmp
 web_scrapping/logs
 web_scrapping/utils/__pycache__
+**/logs
