@@ -35,21 +35,23 @@ logging.basicConfig(
 )
 
 
+# Instatiate environment variables
+load_dotenv()
+MINIO_END_POINT = os.getenv("MINIO_END_POINT")
+ACCESS_KEY = os.getenv("ACCESS_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY")
+BUCKET_NAME = os.getenv("BUCKET_NAME")
+
+
 class object_storage():
     # Create connection
     # return connection object
-    def s3_connector(self):
+    def __init__(self):
 
-        # Instatiate environment variables
-        load_dotenv()
-        MINIO_END_POINT = os.getenv("MINIO_END_POINT")
-        ACCESS_KEY = os.getenv("ACCESS_KEY")
-        SECRET_KEY = os.getenv("SECRET_KEY")
-        BUCKET_NAME = os.getenv("BUCKET_NAME")
 
         logging.info("Environment variables set.")
 
-        s3_conn = boto3.client(
+        self.s3_conn = boto3.client(
             "s3",
             endpoint_url = MINIO_END_POINT,
             aws_access_key_id = ACCESS_KEY,
@@ -58,18 +60,40 @@ class object_storage():
             region_name = "us-east-1"
         )
         try:
-            response = s3_conn.head_bucket(Bucket = BUCKET_NAME)
+            response = self.s3_conn.head_bucket(Bucket = BUCKET_NAME)
             logging.info("Connection to object storage successful!!!")
-            return s3_conn
+            return None
         except EndpointConnectionError:
             logging.error("Failed to connect to object storage. Is Minio Online?")
-            return None
+            exit(1)
         except NoCredentialsError:
             logging.error("No credentials provided. Explicit credentials are required.")
-            return None
+            exit(1)
         except PartialCredentialsError:
             logging.error("Incomplete credentials provided.")
-            return None
+            exit(1) 
         except Exception as e:
             logging.error(e)
-            return None
+            exit(1)
+    
+    def list_objects(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+        try:
+            paginator = self.s3_conn.get_paginator("list_objects_v2")
+            page_iterator = paginator.paginate(Bucket = BUCKET_NAME, Prefix=extract_date+"/")
+
+            self.objects_list = []
+            logging.info(f"Reading bucket object names with prefix {extract_date}")
+            for page in page_iterator:
+                if "Contents" in page:
+                    for obj in page['Contents']:
+                        self.objects_list.append(obj['Key'])
+        except Exception as e:
+            logging.error(e)
+            exit(1)
+
+        obj_count = len(self.objects_list) 
+        if obj_count == 0:
+            logging.warning(f"Bucket has no objects with the prefix {extract_date}")
+        else:
+            logging.info(f"Found {obj_count} object(s) in the bucket")
+        return None
