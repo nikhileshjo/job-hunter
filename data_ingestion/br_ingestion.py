@@ -41,7 +41,7 @@ MINIO_END_POINT = os.getenv("MINIO_END_POINT")
 ACCESS_KEY = os.getenv("ACCESS_KEY")
 SECRET_KEY = os.getenv("SECRET_KEY")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
-
+TEMP_PATH = os.getenv("TEMP_PATH")
 
 class object_storage():
     # Create connection
@@ -97,3 +97,26 @@ class object_storage():
         else:
             logging.info(f"Found {obj_count} object(s) in the bucket")
         return None
+
+    def download_objects(self):
+        logging.info("starting file download from bucket to local...")
+        try:
+            for obj in self.objects_list:
+                object_dir = "/".join(obj.split("/")[:-1])
+                local_dir = TEMP_PATH+'/'+ object_dir
+                # Check path
+                if not os.path.exists(local_dir):
+                    os.makedirs(local_dir)
+                    logging.warning(f"Path not found: {local_dir}")
+                    logging.info(f"Path created: {local_dir}")
+                # create file
+                local_file = local_dir + "/" + obj.split("/")[-1] 
+                with open(local_file, "w") as f:
+                    f.write("")
+                    logging.info(f"file created: {local_file}")
+                logging.info(f"Downloading to {local_file}")
+                self.s3_conn.download_file(BUCKET_NAME, obj, local_file)
+                logging.info(f"file {obj} downloaded to {local_file}")
+        except Exception as e:
+            logging.error(e)
+            exit(1)
