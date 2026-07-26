@@ -24,6 +24,9 @@ from dotenv import load_dotenv
 import logging
 from datetime import datetime
 
+import json
+import gzip
+
 time_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_filename = f"logs/br_ingestion_{time_now}"
 
@@ -120,3 +123,25 @@ class object_storage():
         except Exception as e:
             logging.error(e)
             exit(1)
+
+
+    def read_files(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+        # list files in tmp location
+        extract_date_tmp_location = TEMP_PATH + "/" + extract_date
+        self.json_objs = []
+        logging.info("listing temp files...")
+        for root, dirs, files in os.walk(extract_date_tmp_location):
+            for file in files:
+                tmp_file = os.path.join(root, file)
+                logging.info(f"found file {tmp_file}")
+                try:
+                    with gzip.open(tmp_file, "rb") as f:
+                        file_content = f.read()
+                        self.json_objs.append(json.loads(file_content))
+                        logging.info(f"file read {tmp_file}")
+                except Exception as e:
+                    logging.error(e)
+                    exit(1)
+    def clean_tmp(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+        # cleans temp location
+        pass
