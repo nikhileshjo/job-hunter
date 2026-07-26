@@ -24,9 +24,6 @@ from dotenv import load_dotenv
 import logging
 from datetime import datetime
 
-import gzip
-import json
-
 time_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_filename = f"logs/br_ingestion_{time_now}"
 
@@ -44,7 +41,6 @@ MINIO_END_POINT = os.getenv("MINIO_END_POINT")
 ACCESS_KEY = os.getenv("ACCESS_KEY")
 SECRET_KEY = os.getenv("SECRET_KEY")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
-TEMP_PATH = os.getenv("TEMP_PATH")
 
 
 class object_storage():
@@ -101,44 +97,3 @@ class object_storage():
         else:
             logging.info(f"Found {obj_count} object(s) in the bucket")
         return None
-    
-    def download_objects(self):
-        logging.info("starting file download from bucket to local...")
-        try:
-            for obj in self.objects_list:
-                object_dir = "/".join(obj.split("/")[:-1])
-                local_dir = TEMP_PATH+'/'+ object_dir
-                # Check path
-                if not os.path.exists(local_dir):
-                    os.makedirs(local_dir)
-                    logging.warning(f"Path not found: {local_dir}")
-                    logging.info(f"Path created: {local_dir}")
-                # create file
-                local_file = local_dir + "/" + obj.split("/")[-1] 
-                with open(local_file, "w") as f:
-                    f.write("")
-                    logging.info(f"file created: {local_file}")
-                logging.info(f"Downloading to {local_file}")
-                self.s3_conn.download_file(BUCKET_NAME, obj, local_file)
-                logging.info(f"file {obj} downloaded to {local_file}")
-        except Exception as e:
-            logging.error(e)
-            exit(1)
-    
-    def read_files(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
-        # list files in tmp location
-        extract_date_tmp_location = TEMP_PATH + "/" + extract_date
-        self.json_objs = []
-        logging.info("listing temp files...")
-        for root, dirs, files in os.walk(extract_date_tmp_location):
-            for file in files:
-                tmp_file = os.path.join(root, file)
-                logging.info(f"found file {tmp_file}")
-                try:
-                    with gzip.open(file, "rb") as f:
-                        file_content = f.read()
-                        self.json_objs.append(json.loads(file_content))
-                except Exception as e:
-                    logging.error(e)
-                    exit(1)
-        
