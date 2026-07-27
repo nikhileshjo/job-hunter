@@ -27,6 +27,8 @@ from datetime import datetime
 import json
 import gzip
 
+from sqlalchemy import create_engine, text
+
 time_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_filename = f"logs/br_ingestion_{time_now}"
 
@@ -45,6 +47,7 @@ ACCESS_KEY = os.getenv("ACCESS_KEY")
 SECRET_KEY = os.getenv("SECRET_KEY")
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 TEMP_PATH = os.getenv("TEMP_PATH")
+COLUMN_MAP = os.getenv("COLUMN_MAP")
 
 class object_storage():
     # Create connection
@@ -124,16 +127,19 @@ class object_storage():
             logging.error(e)
             exit(1)
 
+class datawarehouse():
 
     def read_files(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
         # list files in tmp location
         extract_date_tmp_location = TEMP_PATH + "/" + extract_date
         self.json_objs = []
         logging.info("listing temp files...")
+        file_cnt = 0
         for root, dirs, files in os.walk(extract_date_tmp_location):
             for file in files:
                 tmp_file = os.path.join(root, file)
                 logging.info(f"found file {tmp_file}")
+                file_cnt += 1
                 try:
                     with gzip.open(tmp_file, "rb") as f:
                         file_content = f.read()
@@ -142,6 +148,56 @@ class object_storage():
                 except Exception as e:
                     logging.error(e)
                     exit(1)
+        if file_cnt == 0:
+            logging.warning(f"No files found under {extract_date_tmp_location}")
+
+    def append_rows(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+        # get column map
+        logging.info(f"reading column map {COLUMN_MAP}")
+        with open(COLUMN_MAP, "r") as f:
+            file_content = f.read()
+            col_map = json.loads(file_content)
+            logging.info(f"read column map: {col_map}")
+
+        # create inserting data list
+        data = []
+        for j in self.json_objs:
+            d = {}
+            for tb_col, json_key in col_map.items():
+                if tb_col == "meta_data":
+                    d[tb_col] = json.dumps(j[json_key])
+                else:
+                    d[tb_col] = j[json_key]
+            d["extract_date"]=extract_date
+            data.append(d)
+        print(data)
+
+        # create connection to postgres
+        engine = create_engine("postgresql+psycopg2://admin:admin@localhost/jobs")
+        try:
+            with engine.connect() as test_conn:
+                test_conn.execute(text("SELECT 'testing connection'"))
+            logging.info("connection to datawarehouse established")
+        except Exception as e:
+            logging.error(f"error establishing connection {e}")
+            exit(1)
+        # truncate and insert values
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("DELETE FROM br_raw_jobs WHERE extract_date=:extract_date"),
+                            [{"extract_date": extract_date}]
+                            )
+                logging.info(f"deleted any existing rows of extract_date={extract_date}")
+                conn.execute(text("INSERT INTO br_raw_jobs (company_name, job_id, job_url, job_title, job_description, job_location, job_posting_date, meta_data, extract_date) VALUES (:company_name, :job_id, :job_url, :job_title, :job_description, :job_location, :job_posting_date, :meta_data, :extract_date)"),
+                            data,)
+                conn.commit()
+        except Exception as e:
+            logging.error(e)
+            exit(1)
+        
+        
+    def quality_check(self):
+        pass
     def clean_tmp(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
         # cleans temp location
         pass
