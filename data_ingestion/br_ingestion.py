@@ -1,22 +1,3 @@
-# This script will pull data from minio and append it to postgres (datawarehouse)
-# Planning (remove after use)
-# create a class to interact with minio
-## create a method to create connection to minio
-## create a method to make a list of objects available to us, this should be able to filter down to the objects
-## of our interest and only list them, by default, it'll list out everything.
-## Create a method that will download objects that for which it's paths are given and save it in local disk.
-# Create a class to interact with postgres
-## Create a method to create connection with postgres, and it'll return it as an object
-## Create a method to read the json files, make them into python object or variables and then insert it into postgres
-## Create a method to do a quality check on the latest added rows. We'll read the objects that were created by reading
-## the JSON files and see if they exist in the current working date. If it does, it returns true, and if any mismatches foudn
-## return false
-# the main class will be used to orchestrate the above two classes
-## It will call on the minio methods and download all the objects under a company name for the current data(by default)
-## and then call on the postgres methods to append the values into postgres.
-## once uploaded, a quality check will run to see if the rows were added or not, if pass, we'll delete the local files
-## and move on to the next company.
-
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, EndpointConnectionError
 import os
@@ -219,7 +200,40 @@ class datawarehouse():
         
 
 class quality_checks(object_storage, datawarehouse):
-    pass
+    def __init__(self):
+        logging.info("establishing connections for data quality checks...")
+        object_storage.__init__(self)
+        datawarehouse.__init__(self)
+
+    def compare_data(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+        logging.info("starting quality checks...")
+        # getting file count from object storage
+        super().list_objects(extract_date)
+        self.object_count = len(self.objects_list)
+
+        # getting row count from warehouse
+        with open(COLUMN_MAP, "r") as f:
+            file_content = f.read()
+            col_map = json.loads(file_content)
+            logging.info(f"read column map: {col_map}")
+        PARTITION_COLUMN = col_map["partition_column"]
+        try:
+            with self.engine.connect() as conn:
+                query_result = conn.execute(text(
+                                        f"SELECT COUNT(*) FROM {BR_TABLE} WHERE {PARTITION_COLUMN}=:{PARTITION_COLUMN}"),
+                                        [{PARTITION_COLUMN: extract_date}]
+                                        )
+            self.row_count = query_result.all()[0][0]
+        except Exception as e:
+            logging.error(f"unexpected result format: {e}")
+
+        if self.row_count != self.object_count:
+            logging.error("row count does not match object count")
+            logging.info(f"object count: {self.object_count}")
+            logging.info(f"row count: {self.row_count}")
+            exit(1)
+        else:
+            logging.info("row count matched object count")
 
 def clean_tmp(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
     # cleans temp location
