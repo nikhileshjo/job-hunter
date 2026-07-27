@@ -1,6 +1,7 @@
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, EndpointConnectionError
 import os
+import shutil
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
@@ -206,7 +207,7 @@ class quality_checks(object_storage, datawarehouse):
         datawarehouse.__init__(self)
 
     def compare_data(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
-        logging.info("starting quality checks...")
+        logging.info(f"starting quality checks for date {extract_date}")
         # getting file count from object storage
         super().list_objects(extract_date)
         self.object_count = len(self.objects_list)
@@ -235,9 +236,19 @@ class quality_checks(object_storage, datawarehouse):
         else:
             logging.info("row count matched object count")
 
-def clean_tmp(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+def clean_tmp(extract_date=datetime.now().strftime("%Y-%m-%d")):
     # cleans temp location
-    pass
+    target_location = TEMP_PATH + "/" + extract_date
+    logging.info(f"starting to clean temp location: {target_location}")
+    try:
+        if os.path.exists(target_location):
+            shutil.rmtree(target_location)
+            logging.info("temp location removed")
+        else:
+            logging.warning(f"no such path found: {target_location}")
+    except Exception as e:
+        logging.error(f"failed to delete path: {e}")
+
 
 if __name__ == "__main__":
     pass
