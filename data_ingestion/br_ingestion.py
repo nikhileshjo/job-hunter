@@ -11,6 +11,8 @@ import gzip
 
 from sqlalchemy import create_engine, text
 
+import argparse
+
 time_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_filename = f"logs/br_ingestion_{time_now}"
 
@@ -251,4 +253,29 @@ def clean_tmp(extract_date=datetime.now().strftime("%Y-%m-%d")):
 
 
 if __name__ == "__main__":
-    pass
+    logging.info("starting ingestion script...")
+    parser = argparse.ArgumentParser(
+                    prog='br_ingestion',
+                    description='Ingest files from object storage into bronze layer of datawarehouse',
+                    )
+    parser.add_argument('-d', '--date')
+    args = parser.parse_args()
+    extract_date = args.date
+    if extract_date is None:
+        extract_date=datetime.now().strftime("%Y-%m-%d")
+
+    obj_stg = object_storage()
+    obj_stg.list_objects(extract_date)
+    obj_stg.download_objects()
+
+    dw = datawarehouse()
+    dw.read_files(extract_date)
+    dw.append_rows(extract_date)
+
+    dq = quality_checks()
+    dq.compare_data(extract_date)
+
+    clean_tmp(extract_date)
+
+    logging.info("script execution completed successfully!!")
+    exit(0)
