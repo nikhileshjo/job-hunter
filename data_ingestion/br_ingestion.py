@@ -49,13 +49,18 @@ BUCKET_NAME = os.getenv("BUCKET_NAME")
 TEMP_PATH = os.getenv("TEMP_PATH")
 COLUMN_MAP = os.getenv("COLUMN_MAP")
 
+PG_DBNAME= os.getenv("PG_DBNAME")
+PG_USER= os.getenv("PG_USER")
+PG_PASSWORD= os.getenv("PG_PASSWORD")
+PG_HOST= os.getenv("PG_HOST")
+PG_PORT= os.getenv("PG_PORT")
+PG_DRIVER= os.getenv("PG_DRIVER")
+BR_TABLE= os.getenv("BR_TABLE")
+
 class object_storage():
     # Create connection
     # return connection object
     def __init__(self):
-
-
-        logging.info("Environment variables set.")
 
         self.s3_conn = boto3.client(
             "s3",
@@ -128,6 +133,18 @@ class object_storage():
             exit(1)
 
 class datawarehouse():
+    def __init__(self):
+    
+    
+        # create connection to postgres
+        self.engine = create_engine(f"{PG_DRIVER}://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DBNAME}")
+        try:
+            with self.engine.connect() as test_conn:
+                test_conn.execute(text("SELECT 'testing connection'"))
+                logging.info("connection to datawarehouse established")
+        except Exception as e:
+            logging.error(f"error establishing connection {e}")
+            exit(1)
 
     def read_files(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
         # list files in tmp location
@@ -143,7 +160,10 @@ class datawarehouse():
                 try:
                     with gzip.open(tmp_file, "rb") as f:
                         file_content = f.read()
-                        self.json_objs.append(json.loads(file_content))
+                        data_dict = {}
+                        for key, val in json.loads(file_content).items():
+                            data_dict[key] = json.dumps(val)
+                        self.json_objs.append(data_dict)
                         logging.info(f"file read {tmp_file}")
                 except Exception as e:
                     logging.error(e)
@@ -164,40 +184,46 @@ class datawarehouse():
         for j in self.json_objs:
             d = {}
             for tb_col, json_key in col_map.items():
-                if tb_col == "meta_data":
-                    d[tb_col] = json.dumps(j[json_key])
+                if tb_col == "partition_column":
+                    d[json_key] = extract_date
                 else:
                     d[tb_col] = j[json_key]
-            d["extract_date"]=extract_date
             data.append(d)
-        print(data)
 
-        # create connection to postgres
-        engine = create_engine("postgresql+psycopg2://admin:admin@localhost/jobs")
-        try:
-            with engine.connect() as test_conn:
-                test_conn.execute(text("SELECT 'testing connection'"))
-            logging.info("connection to datawarehouse established")
-        except Exception as e:
-            logging.error(f"error establishing connection {e}")
-            exit(1)
-        # truncate and insert values
-        try:
-            with engine.connect() as conn:
-                conn.execute(text("DELETE FROM br_raw_jobs WHERE extract_date=:extract_date"),
-                            [{"extract_date": extract_date}]
-                            )
-                logging.info(f"deleted any existing rows of extract_date={extract_date}")
-                conn.execute(text("INSERT INTO br_raw_jobs (company_name, job_id, job_url, job_title, job_description, job_location, job_posting_date, meta_data, extract_date) VALUES (:company_name, :job_id, :job_url, :job_title, :job_description, :job_location, :job_posting_date, :meta_data, :extract_date)"),
-                            data,)
-                conn.commit()
-        except Exception as e:
-            logging.error(e)
-            exit(1)
+        if len(data) > 0:
+            # prep column list for query
+            col_lst = []
+            for tb_col, json_key in col_map.items():
+                if tb_col == "partition_column":
+                    col_lst.append(json_key)
+                else:
+                    col_lst.append(tb_col)
+            col_str = ",".join(col_lst)
+            val_str = ",".join([f":{x}" for x in col_lst])
+            # truncate and insert values
+            try:
+                with self.engine.connect() as conn:
+                    conn.execute(text(
+                        f"DELETE FROM {BR_TABLE} WHERE {col_map["partition_column"]}=:{col_map["partition_column"]}"),
+                        [{col_map["partition_column"]: extract_date}]
+                        )
+                    logging.info(f"deleted any existing rows of {col_map["partition_column"]}={extract_date}")
+                    conn.execute(text(f"INSERT INTO {BR_TABLE} ({col_str}) VALUES ({val_str})"), data,)
+                    logging.info(f"inserted rows in {BR_TABLE}")
+                    conn.commit()
+            except Exception as e:
+                logging.error(e)
+                exit(1)
+        else:
+            logging.warning("no data to insert")
         
-        
-    def quality_check(self):
-        pass
-    def clean_tmp(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
-        # cleans temp location
-        pass
+
+class quality_checks(object_storage, datawarehouse):
+    pass
+
+def clean_tmp(self, extract_date=datetime.now().strftime("%Y-%m-%d")):
+    # cleans temp location
+    pass
+
+if __name__ == "__main__":
+    pass

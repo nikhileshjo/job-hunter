@@ -6,5 +6,6 @@
     "job_description" : "description",
     "job_location" : "location",
     "job_posting_date" : "posted_at",
-    "meta_data" : "meta_data"
+    "meta_data" : "meta_data",
+    "partition_column" : "extract_date"
 }
