@@ -1,11 +1,11 @@
 {
-    "company_name" : "company_name",
+    "company_name": "company_name",
     "job_id" : "job_id",
-    "job_url" : "url",
-    "job_title" : "title",
-    "job_description" : "description",
-    "job_location" : "location",
-    "job_posting_date" : "posted_at",
+    "url": "job_url",
+    "title" : "job_title",
+    "description": "job_description",
+    "location": "job_location",
+    "posted_at" : "job_posting_date",
     "meta_data" : "meta_data",
     "partition_column" : "extract_date"
 }
