@@ -1,7 +1,7 @@
 import requests
 import json
-from .framework.base_scraper import BaseScraper
-from .framework.models import JobData
+from ..framework.base_scraper import BaseScraper
+from ..framework.models import JobData
 
 # extract_date = str(datetime.now().strftime("%Y-%m-%d"))
 
